@@ -1,0 +1,10 @@
+.floatCard {
+  box-shadow: 0 2px 0 0 lightgray;
+  transition: all 0.2s ease-in-out;
+  
+}
+
+.floatCard:hover {
+  cursor: pointer;
+  background-color: lightgray;
+}
