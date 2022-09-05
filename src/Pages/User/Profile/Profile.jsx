@@ -191,7 +191,7 @@ const Profile = () => {
       return toast(`${response.data.fullName} deleted successfully!`);
     } catch (error) {
       console.log(error);
-      return toast("Error!", { type: "error" });
+      return toast(error.response.data.message, { type: "error" });
     }
   };
 

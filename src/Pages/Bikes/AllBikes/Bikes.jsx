@@ -55,7 +55,7 @@ const Bikes = () => {
           <ul className="list-group list-group-flush text-center">
             <li className="list-group-item">Bike ID: {bike.id}</li>
             <li className="list-group-item">
-              Bike Available:{" "}
+              Currently Available:{" "}
               {bike.isAvailable ? (
                 <CheckCircleFill className="text-success" size={25} />
               ) : (

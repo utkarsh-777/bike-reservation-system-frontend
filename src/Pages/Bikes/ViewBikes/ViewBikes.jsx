@@ -80,11 +80,15 @@ const ViewBikes = () => {
       let reservationStartDate = null;
       let reservationEndDate = null;
       let pg = 1;
+      setBikesByFilterPage(page);
       if (ob === "clear") {
         let start = moment().add(5, "minutes");
         let end = moment(start).add(1, "days").subtract(1, "seconds");
         reservationStartDate = start;
         reservationEndDate = end;
+        dispatch(
+          reservation_dates({ reservationStartDate, reservationEndDate }),
+        );
         data = {
           reservationStartDate: start._d,
           reservationEndDate: end._d,
@@ -99,6 +103,9 @@ const ViewBikes = () => {
         pg = page;
         reservationStartDate = new Date(startDate);
         reservationEndDate = new Date(endDate);
+        dispatch(
+          reservation_dates({ reservationStartDate, reservationEndDate }),
+        );
         data = {
           reservationStartDate: startDate,
           reservationEndDate: endDate,
@@ -183,7 +190,7 @@ const ViewBikes = () => {
           <ul className="list-group list-group-flush text-center">
             <li className="list-group-item">Bike ID: {bike.id}</li>
             <li className="list-group-item">
-              Bike Available:{" "}
+              Currently Available:{" "}
               {bike.isAvailable ? (
                 <CheckCircleFill className="text-success" size={25} />
               ) : (

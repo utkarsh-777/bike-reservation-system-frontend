@@ -75,7 +75,7 @@ const ReserveBike = () => {
       }
     } catch (error) {
       console.log(error);
-      return toast("Error!", { type: "error" });
+      return toast(error.response.data.message, { type: "error" });
     }
     return () => {
       dispatch(remove_reservation_dates());
@@ -251,7 +251,7 @@ const ReserveBike = () => {
               <li className="list-group-item">Color: {bike.color}</li>
               <li className="list-group-item">Location: {bike.location}</li>
               <li className="list-group-item">
-                Bike Available:{" "}
+                Currently Available:{" "}
                 {bike.isAvailable ? (
                   <CheckCircleFill className="text-success" size={25} />
                 ) : (

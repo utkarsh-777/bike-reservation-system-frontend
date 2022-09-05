@@ -57,9 +57,9 @@ const AddBikes = () => {
             }
             return toast(response.data.message, { type: "default" });
           })
-          .catch((err) => {
-            console.log(err);
-            return toast("Error!", { type: "error" });
+          .catch((error) => {
+            console.log(error);
+            return toast(error.response.data.message, { type: "error" });
           });
       } else {
         const data = {
