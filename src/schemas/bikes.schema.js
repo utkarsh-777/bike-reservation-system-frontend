@@ -1,4 +1,5 @@
 import Joi from "joi";
+import moment from "moment";
 
 export const addBikeSchema = Joi.object({
   model: Joi.string().trim().min(2).max(100).required(),
@@ -15,9 +16,12 @@ export const addUserSchema = Joi.object({
 });
 
 export const filterBikesSchema = Joi.object({
-  reservationStartDate: Joi.date().min("now").required(),
+  reservationStartDate: Joi.date()
+    .min(moment().startOf("day"))
+    .message("Start date cannot be a past day!")
+    .required(),
   reservationEndDate: Joi.date()
-    .greater(Joi.ref("reservationStartDate"))
+    .min(Joi.ref("reservationStartDate"))
     .required(),
   page: Joi.number().positive().required(),
   model: Joi.string().trim().optional(),
@@ -28,9 +32,9 @@ export const filterBikesSchema = Joi.object({
 
 export const reserveBikeSchema = Joi.object({
   bikeId: Joi.number().positive().required(),
-  reservationStartDate: Joi.date().min("now").required(),
+  reservationStartDate: Joi.date().min(moment().startOf("day")).required(),
   reservationEndDate: Joi.date()
-    .greater(Joi.ref("reservationStartDate"))
+    .min(Joi.ref("reservationStartDate"))
     .required(),
 });
 

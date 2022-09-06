@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import Axios from "../../../axios";
 import NavBar from "../../../Components/common/Navbar/NavBar";
-import DateTimeRangeView from "../../../Components/DateTimeRangeView/DateTimeRangeView";
+import DateRangePickerComponent from "../../../Components/DateRangePicker/DateRangePicker";
 import Modal from "react-modal";
 import {
   remove_reservation_dates,
@@ -15,6 +15,7 @@ import {
   reserveBikeSchema,
   updateBikeSchema,
 } from "../../../schemas/bikes.schema";
+import moment from "moment/moment";
 
 const ReserveBike = () => {
   const navigate = useNavigate();
@@ -22,17 +23,14 @@ const ReserveBike = () => {
   const userState = useSelector((state) => state.user);
   const { bikeId } = useParams();
   const [startDate, setStartDate] = useState(
-    userState.reservationDates.reservationStartDate,
+    userState.reservationDates.reservationStartDate
+      ? new Date(userState.reservationDates.reservationStartDate)
+      : moment().startOf("day").toDate(),
   );
   const [endDate, setEndDate] = useState(
-    userState.reservationDates.reservationEndDate,
-  );
-  const [selectedDate, setSelectedDate] = useState(
-    userState.reservationDates.reservationStartDate
-      ? userState.reservationDates.reservationStartDate.toLocaleString() +
-          " TO " +
-          userState.reservationDates.reservationEndDate.toLocaleString()
-      : null,
+    userState.reservationDates.reservationEndDate
+      ? new Date(userState.reservationDates.reservationEndDate)
+      : moment().startOf("day").add(1, "day").toDate(),
   );
   const [bike, setBike] = useState(null);
   const [modalIsOpen, setIsOpen] = React.useState(false);
@@ -85,19 +83,15 @@ const ReserveBike = () => {
 
   const reserveBike = () => {
     try {
-      const sd = new Date(startDate);
-      const ed = new Date(endDate);
-
       const { error, value } = reserveBikeSchema.validate({
         bikeId,
-        reservationStartDate: sd.toLocaleString(),
-        reservationEndDate: ed.toLocaleString(),
+        reservationStartDate: startDate.toDateString(),
+        reservationEndDate: endDate.toDateString(),
       });
 
       if (error) {
         return toast(error.message, { type: "info" });
       }
-
       Axios.patch(
         `/user/reserve-bike/${bikeId}`,
         { ...value },
@@ -231,17 +225,17 @@ const ReserveBike = () => {
         </h4>
       </div>
       <div className="container">
-        <label>Reserve {bike && bike.model}</label>
+        <div className="text-center mb-4">
+          <label>Reserve {bike && bike.model}</label>
+        </div>
         <div className="mt-2">
-          <DateTimeRangeView
+          <DateRangePickerComponent
             startDate={startDate}
             endDate={endDate}
-            selectedDate={selectedDate}
             setStartDate={setStartDate}
             setEndDate={setEndDate}
-            setSelectedDate={setSelectedDate}
             func={reserveBike}
-            text={"Reserve"}
+            buttonText={`Reserve`}
           />
         </div>
         {bike && (
