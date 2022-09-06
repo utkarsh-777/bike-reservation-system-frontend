@@ -57,16 +57,18 @@ const HomePage = () => {
         </h2>
       </div>
       <div className="border">
-        <div className="container">
-          <div style={{ marginTop: "20px" }}>
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              setPage={setPage}
-              func={getReservations}
-            />
+        {userReservations && userReservations.length > 0 && (
+          <div className="container">
+            <div style={{ marginTop: "20px" }}>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                setPage={setPage}
+                func={getReservations}
+              />
+            </div>
           </div>
-        </div>
+        )}
         {userReservations ? (
           <>
             {userReservations.length > 0 ? (

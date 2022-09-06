@@ -36,8 +36,9 @@ const Pagination = (props) => {
       <ul className="pagination justify-content-center">
         <li className="page-item">
           <button
-            className="page-link"
+            className="btn page-link"
             onClick={() => handlePageChange(props.page - 1)}
+            disabled={props.page === 1}
           >
             Previous
           </button>
@@ -54,8 +55,9 @@ const Pagination = (props) => {
         ))}
         <li className="page-item">
           <button
-            className="page-link"
+            className="btn page-link"
             onClick={() => handlePageChange(props.page + 1)}
+            disabled={props.page === props.totalPages}
           >
             Next
           </button>
