@@ -1,9 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, useParams } from "react-router-dom";
-import Axios from "../../axios";
-import Loader from "../../Components/common/Loader/Loader";
-import NavBar from "../../Components/common/Navbar/NavBar";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Loader from "../common/Loader/Loader";
 import {
   EyeFill,
   EyeSlashFill,
@@ -12,55 +9,35 @@ import {
 } from "react-bootstrap-icons";
 import { toast, ToastContainer } from "react-toastify";
 import Modal from "react-modal";
-import { reservations } from "../../actions/userActions";
 import {
   cancelReservationSchema,
   rateReservationSchema,
 } from "../../schemas/rateReservation.schema";
+import { cancelReservationAPI, rateReservationAPI } from "../../service/apis";
+import { useEffect } from "react";
 
-const RateReservation = () => {
-  const userState = useSelector((state) => state.user);
-  const dispatch = useDispatch();
+const RateReservation = (props) => {
   const navigate = useNavigate();
-  const { reservationId } = useParams();
-  const [reservation, setReservation] = useState();
+  const reservationId = props?.reservation?.id;
+  const [reservation, setReservation] = useState(props.reservation);
   const [reviewToggle, setReviewToggle] = useState(false);
 
   const [openModal, setOpenModal] = useState(false);
   const [comment, setComment] = useState("");
   const [rating, setRating] = useState("");
 
-  const getReservationData = () => {
-    Axios.get(`/user/get-user-reservation-id/${reservationId}`, {
-      headers: {
-        Authorization: "Bearer " + localStorage.getItem("token"),
-      },
-    })
-      .then((reservation) => {
-        if (reservation.data.message) {
-          return console.log(reservation.data.message);
-        }
-        setReservation(reservation.data);
-      })
-      .catch((err) => console.log(err));
-  };
-
-  useEffect(() => {
-    if (userState && userState.email) {
-      getReservationData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userState]);
-
   const getStatus = (status) => {
     if (status === "cancel") {
       return <span className="text-danger">{status.toUpperCase()}</span>;
-    } else if (status === "upcoming") {
-      return <span className="text-warning">{status.toUpperCase()}</span>;
     } else {
       return <span className="text-success">{status.toUpperCase()}</span>;
     }
   };
+
+  useEffect(() => {
+    setReservation(props.reservation);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.reservation.review, props.reservation.status]);
 
   const rateReview = () => {
     try {
@@ -73,22 +50,13 @@ const RateReservation = () => {
       if (error) {
         return toast(error.message, { type: "info" });
       }
-
-      Axios.post(
-        `/user/rate-reservation/${reservationId}`,
-        {
-          comment: value?.comment,
-          rating: value?.rating,
-        },
-        {
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        },
-      )
+      rateReservationAPI(reservationId, {
+        comment: value?.comment,
+        rating: value?.rating,
+      })
         .then((response) => {
-          getReservationData();
           setOpenModal(false);
+          props.func(props.page);
           return toast(response.data.message, { type: "default" });
         })
         .catch((error) => {
@@ -107,24 +75,10 @@ const RateReservation = () => {
       if (error) {
         return toast(error.message, { type: "error" });
       }
-      Axios.patch(
-        `/user/cancel-reservation/${reservationId}`,
-        {},
-        {
-          headers: { Authorization: "Bearer " + localStorage.getItem("token") },
-        },
-      )
+
+      cancelReservationAPI(reservationId)
         .then(async (response) => {
-          setTimeout(() => {
-            navigate("/reservations");
-          }, 1500);
-          await Axios.get(`/user/get-all-user-reservations`, {
-            headers: {
-              Authorization: "Bearer " + localStorage.getItem("token"),
-            },
-          }).then((response) => {
-            dispatch(reservations(response.data));
-          });
+          props.func(props.page);
           return toast(response.data.message, { type: "default" });
         })
         .catch((error) => {
@@ -145,7 +99,6 @@ const RateReservation = () => {
 
   return (
     <div>
-      <NavBar user={userState} />
       <ToastContainer />
       {reservation ? (
         <div className="container mt-4">

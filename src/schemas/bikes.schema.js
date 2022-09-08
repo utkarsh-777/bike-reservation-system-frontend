@@ -32,7 +32,10 @@ export const filterBikesSchema = Joi.object({
 
 export const reserveBikeSchema = Joi.object({
   bikeId: Joi.number().positive().required(),
-  reservationStartDate: Joi.date().min(moment().startOf("day")).required(),
+  reservationStartDate: Joi.date()
+    .min(moment().startOf("day"))
+    .message("Reservation start date should not be a past today!")
+    .required(),
   reservationEndDate: Joi.date()
     .min(Joi.ref("reservationStartDate"))
     .required(),
@@ -44,6 +47,11 @@ export const updateBikeSchema = Joi.object({
   color: Joi.string().trim().required(),
   location: Joi.string().trim().required(),
   isAvailable: Joi.boolean().required(),
+});
+
+export const getBikeReservationsSchema = Joi.object({
+  bikeId: Joi.number().positive().required(),
+  page: Joi.number().positive().required(),
 });
 
 export const modelSchema = Joi.string().trim().min(2).max(100).required();

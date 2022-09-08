@@ -1,35 +1,48 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useContext } from "react";
+import { useCookies } from "react-cookie";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import { remove_user, user } from "../../../actions/userActions";
 import Loader from "../../../Components/common/Loader/Loader";
-import NavBar from "../../../Components/common/Navbar/NavBar";
+import Pagination from "../../../Components/common/Pagination/Pagination";
+import { UserContext } from "../../../context/context";
 import { getUsersSchema } from "../../../schemas/bikes.schema";
+import { updateUserSchema } from "../../../schemas/user.schema";
 import {
-  updateManagerUserProfileSchema,
-  updateUserProfileSchema,
-} from "../../../schemas/user.schema";
-import {
-  deleteManagerService,
-  deleteUserService,
-  getUserByIdService,
-  updateManagerProfileService,
-  updateUserProfileService,
+  getUserByIdAPI,
+  getUserReservationsAPI,
+  updateUserAPI,
+  deleteUserAPI,
 } from "../../../service/apis";
 
 const Profile = () => {
-  const userState = useSelector((state) => state.user);
-  const dispatch = useDispatch();
+  const { userState, dispatch } = useContext(UserContext);
   const navigate = useNavigate();
   const { userId } = useParams();
+  const [, setCookie] = useCookies(["user"]);
 
   const [userData, setUserData] = useState(null);
   const [email, setEmail] = useState(null);
   const [fullName, setFullName] = useState(null);
-  const [password, setPassword] = useState(null);
   const [role, setRole] = useState(null);
   const [buttonDisabled, setButtonDisabled] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+
+  const [userReservations, setUserReservations] = useState(null);
+  const getUserReservations = async (page, id = null) => {
+    try {
+      const response = await getUserReservationsAPI(
+        id ? id : userData?.id,
+        page,
+      );
+      setUserReservations(response.data[0]);
+      setTotalPages(Math.ceil(response.data[1] / 5));
+    } catch (error) {
+      return toast(error.response.data.message, { type: "error" });
+    }
+  };
 
   const buttonCallback = useMemo(() => {
     if (buttonDisabled) {
@@ -39,22 +52,14 @@ const Profile = () => {
       return false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email, fullName, password, role]);
+  }, [email, fullName, role]);
 
   const getUserById = async () => {
     // eslint-disable-next-line eqeqeq
     if (userId == userState.id) {
       return userState;
     }
-    const response = await getUserByIdService(userId);
-    if (response?.response?.data?.message) {
-      localStorage.clear();
-      dispatch(remove_user());
-      setTimeout(() => {
-        navigate("/");
-      }, 1000);
-      return toast("You are not authorized!", { type: "error" });
-    }
+    const response = await getUserByIdAPI(userId);
     return response.data;
   };
 
@@ -67,9 +72,21 @@ const Profile = () => {
           setFullName(data.fullName);
           setRole(data.role);
           setButtonDisabled(true);
+          return data;
         })
-        .catch((err) => {
-          console.log(err);
+        .then((data) => {
+          if (userState.role === "manager") {
+            getUserReservations(1, data.id);
+          }
+        })
+        .catch((error) => {
+          localStorage.clear();
+          dispatch(remove_user());
+          setCookie("user", null);
+          setTimeout(() => {
+            navigate("/");
+          }, 1000);
+          return toast(error.response.data.message, { type: "error" });
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,36 +95,9 @@ const Profile = () => {
   const handleUpdate = async () => {
     try {
       let data = {};
-      if (userState.role === "regular") {
-        if (password !== null) {
-          data = { ...data, password };
-        }
-        if (fullName !== userData?.fullName) {
-          data = { ...data, fullName };
-        }
-        const { error, value } = updateUserProfileSchema.validate(data);
-        if (error) {
-          return toast(error.message, { type: "warning" });
-        }
-        const response = await updateUserProfileService(value);
-        if (response.data.message) {
-          return toast(response?.response?.data?.message, { type: "warning" });
-        }
-        dispatch(
-          user({
-            ...response.data,
-            id: userState.id,
-            reservations: userState.reservations,
-          }),
-        );
-        return toast("Profile updated successfully!", { type: "default" });
-      }
 
       if (email !== userData?.email) {
         data = { ...data, email: email.trim().toLowerCase() };
-      }
-      if (password !== null) {
-        data = { ...data, password };
       }
       if (fullName !== userData?.fullName) {
         data = { ...data, fullName };
@@ -116,25 +106,24 @@ const Profile = () => {
         data = { ...data, role };
       }
 
-      const { error, value } = updateManagerUserProfileSchema.validate(data);
+      const { error, value } = updateUserSchema.validate(data);
       if (error) {
         return toast(error.message, { type: "info" });
       }
-      const response = await updateManagerProfileService(userId, value);
+      const response = await updateUserAPI(userId, value);
       if (response?.data?.message) {
         return toast(response?.data?.message, { type: "warning" });
       }
       if (response.data.id === userState.id) {
+        setCookie("user", JSON.stringify(response.data));
         dispatch(
           user({
             ...response.data,
-            reservations: userState.reservations,
           }),
         );
       } else {
         setUserData({
           ...response.data,
-          reservations: userData.reservations,
         });
       }
       return toast("Updated Succesfully!", { type: "success" });
@@ -146,29 +135,11 @@ const Profile = () => {
 
   const handleDelete = async () => {
     try {
-      if (userState.role === "regular") {
-        if (userState.email !== userData.email) {
-          return toast("You are not authorized!", { type: "warning" });
-        }
-
-        const response = await deleteUserService();
-        if (response.data.message) {
-          return toast(response.data.message, { type: "warning" });
-        }
-
-        localStorage.clear();
-        toast(response.data.success, { type: "info" });
-        return setTimeout(() => {
-          navigate("/");
-          dispatch(remove_user());
-        }, 1500);
-      }
-
       const { error } = getUsersSchema.validate(userId);
       if (error) {
         return toast(error.message, { type: "error" });
       }
-      const response = await deleteManagerService(userId);
+      const response = await deleteUserAPI(userId);
       if (response.data.message) {
         return toast(response.data.message, { type: "warning" });
       }
@@ -176,6 +147,8 @@ const Profile = () => {
       if (response.data.email === userState.email) {
         localStorage.clear();
         dispatch(remove_user());
+        setCookie("user", null);
+
         toast(response.data.success, { type: "success" });
         return setTimeout(() => {
           navigate("/");
@@ -195,7 +168,7 @@ const Profile = () => {
     }
   };
 
-  const generateUserCard = (userData) => {
+  const generateUserCard = (userData, userRole) => {
     return (
       <div className="card bg-light">
         <div className="card-body">
@@ -223,6 +196,7 @@ const Profile = () => {
                 className="form-control"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                disabled={userRole === "regular"}
               />
             </li>
             <li className="list-group-item">
@@ -231,83 +205,85 @@ const Profile = () => {
                 type={"text"}
                 className="form-control"
                 value={email}
-                disabled={userState.role !== "manager"}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={userRole === "regular"}
               />
             </li>
-            {userState.id === userData.id && (
-              <li className="list-group-item">
-                <label>Password</label>
-                <input
-                  type={"password"}
-                  className="form-control"
-                  value={password}
-                  placeholder="Enter your new password..."
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </li>
-            )}
 
-            {userState.role === "manager" && (
-              <li className="list-group-item">
-                <label>Role</label>
-                <select
-                  onChange={(e) => setRole(e.target.value)}
-                  className="form-select"
-                  value={role}
-                >
-                  <option value={"regular"}>Regular</option>
-                  <option value={"manager"}>Manager</option>
-                </select>
-              </li>
-            )}
-
-            <li className="list-group-item">
-              <div className="row">
-                <div className="col-12">
+            {userRole === "manager" && (
+              <>
+                <li className="list-group-item">
+                  <label>Role</label>
+                  <select
+                    onChange={(e) => setRole(e.target.value)}
+                    className="form-select"
+                    value={role}
+                  >
+                    <option value={"regular"}>Regular</option>
+                    <option value={"manager"}>Manager</option>
+                  </select>
+                </li>
+                <li className="list-group-item">
                   <div className="row">
-                    <div className="col">
-                      <button
-                        disabled={buttonCallback}
-                        className="btn btn-primary btn-md"
-                        onClick={handleUpdate}
-                        style={{ width: "100%" }}
-                      >
-                        Update
-                      </button>
-                    </div>
-                    <div className="col">
-                      <button
-                        className="btn btn-danger btn-md"
-                        onClick={handleDelete}
-                        style={{ width: "100%" }}
-                      >
-                        Remove{" "}
-                        {userData.email === userState.email
-                          ? "(Yourself)"
-                          : `${userData.fullName}`}
-                      </button>
+                    <div className="col-12">
+                      <div className="row">
+                        <div className="col">
+                          <button
+                            disabled={buttonCallback}
+                            className="btn btn-primary btn-md"
+                            onClick={handleUpdate}
+                            style={{ width: "100%" }}
+                          >
+                            Update
+                          </button>
+                        </div>
+                        <div className="col">
+                          <button
+                            className="btn btn-danger btn-md"
+                            onClick={handleDelete}
+                            style={{ width: "100%" }}
+                          >
+                            Remove{" "}
+                            {userData.email === userState.email
+                              ? "(Yourself)"
+                              : `${userData.fullName}`}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </li>
-            <li className="list-group-item">
-              {userData.reservations && userData.reservations.length > 0 && (
-                <h4 className="text-center mt-4">
-                  {userData.email === userState.email
-                    ? "Your"
-                    : userData.fullName}{" "}
-                  Bike Reservations
-                </h4>
-              )}
-              <div className="overflow-auto mt-2" style={{ maxHeight: "60vh" }}>
-                {userData.reservations &&
-                  userData.reservations.map((reservation) =>
-                    reservationCard(reservation),
+                </li>
+                <li className="list-group-item">
+                  {userReservations && userReservations.length > 0 && (
+                    <>
+                      <h4 className="text-center mt-4">
+                        {userData.email === userState.email
+                          ? "Your"
+                          : userData.fullName}{" "}
+                        Bike Reservations
+                      </h4>
+                      <div className="mt-4">
+                        <Pagination
+                          page={page}
+                          totalPages={totalPages}
+                          setPage={setPage}
+                          func={getUserReservations}
+                        />
+                      </div>
+                    </>
                   )}
-              </div>
-            </li>
+                  <div
+                    className="overflow-auto mt-2"
+                    style={{ maxHeight: "60vh" }}
+                  >
+                    {userReservations &&
+                      userReservations.map((reservation) =>
+                        reservationCard(reservation),
+                      )}
+                  </div>
+                </li>
+              </>
+            )}
           </ul>
         </div>
       </div>
@@ -343,13 +319,10 @@ const Profile = () => {
 
   return (
     <div>
-      <NavBar user={userState && userState} />
       <ToastContainer />
       <div className="container mt-4">
         {userData && userState ? (
-          generateUserCard(
-            userState.email === userData.email ? userState : userData,
-          )
+          generateUserCard(userData, userState?.role)
         ) : (
           <Loader color={"primary"} />
         )}

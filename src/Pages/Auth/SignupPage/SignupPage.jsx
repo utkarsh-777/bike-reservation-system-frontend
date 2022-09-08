@@ -1,11 +1,12 @@
 import React, { useState } from "react";
+import { useContext } from "react";
+import { UserContext } from "../../../context/context";
 import { Link, useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import Footer from "../../../Components/common/Footer/Footer";
 import Loader from "../../../Components/common/Loader/Loader";
 import signup from "../../../images/signup.png";
 import Axios from "../../../axios";
-import { useDispatch } from "react-redux";
 import { user } from "../../../actions/userActions";
 import {
   emailSchema,
@@ -13,8 +14,10 @@ import {
   signUpPasswordSchema,
   signUpSchema,
 } from "../../../schemas/auth.schema";
+import { useCookies } from "react-cookie";
 
 const Signup = () => {
+  const [, setCookie] = useCookies(["user"]);
   const [emailValid, setEmailValid] = useState(false);
   const [passwordValid, setPasswordValid] = useState(false);
   const [fullNameValid, setFullNameValid] = useState(false);
@@ -23,7 +26,7 @@ const Signup = () => {
   const [password, setPassword] = useState();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const { dispatch } = useContext(UserContext);
 
   const handleSubmit = async () => {
     try {
@@ -35,17 +38,15 @@ const Signup = () => {
       }
 
       setLoading(true);
-      const response = await Axios.post("/auth/signup", {
-        data: { ...value },
-      });
+      const response = await Axios.post("/user/signup", { ...value });
       if (response.data.token) {
         setTimeout(() => {
           navigate("/home");
         }, 2000);
         setLoading(false);
         localStorage.setItem("token", response.data.token);
-        localStorage.setItem("userId", response.data.user.id);
         dispatch(user(response.data.user));
+        setCookie("user", JSON.stringify(response.data.user));
         return toast("Signup successfull!", { type: "success" });
       } else {
         setLoading(false);

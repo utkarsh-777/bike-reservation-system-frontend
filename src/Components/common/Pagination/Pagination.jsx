@@ -1,23 +1,15 @@
 import React from "react";
-import { toast, ToastContainer } from "react-toastify";
 
 const Pagination = (props) => {
   const generateClassName = (page) => {
     if (props.page === page) {
-      return `page-item active`;
+      return `btn page-link bg-primary text-light`;
     } else {
-      return `page-item`;
+      return `btn page-link`;
     }
   };
 
   const handlePageChange = (page) => {
-    if (page < 1) {
-      return toast("Already on Page 1", { type: "warning" });
-    }
-
-    if (page > props.totalPages) {
-      return toast("Reached last page", { type: "info" });
-    }
     props.setPage(page);
     props.func(page);
   };
@@ -32,7 +24,6 @@ const Pagination = (props) => {
 
   return (
     <nav aria-label="Page navigation example">
-      <ToastContainer />
       <ul className="pagination justify-content-center">
         <li className="page-item">
           <button
@@ -44,10 +35,10 @@ const Pagination = (props) => {
           </button>
         </li>
         {renderPages().map((page) => (
-          <li key={page} className={generateClassName(page)}>
+          <li key={page} className="page-item">
             <button
-              className="page-link"
               onClick={() => handlePageChange(page)}
+              className={generateClassName(page)}
             >
               {page}
             </button>

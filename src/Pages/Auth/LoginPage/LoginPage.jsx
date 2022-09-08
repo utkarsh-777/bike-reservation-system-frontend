@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { useContext } from "react";
+import { UserContext } from "../../../context/context";
 import { ToastContainer, toast } from "react-toastify";
+import { useCookies } from "react-cookie";
 import login from "../../../images/login.png";
 import Footer from "../../../Components/common/Footer/Footer";
 import Loader from "../../../Components/common/Loader/Loader";
 import { Link, useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
 import Axios from "../../../axios";
 import { user } from "../../../actions/userActions";
 import {
@@ -14,32 +16,33 @@ import {
 } from "../../../schemas/auth.schema";
 
 const LoginPage = () => {
+  const [, setCookie] = useCookies(["user"]);
   const [emailValid, setEmailValid] = useState(false);
   const [passwordValid, setPasswordValid] = useState(false);
   const [email, setEmail] = useState();
   const [password, setPassword] = useState();
   const [loading, setLoading] = useState(false);
-  const dispatch = useDispatch();
+  const { dispatch } = useContext(UserContext);
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
     try {
       const data = { email: email?.toLowerCase(), password };
       const { error, value } = loginSchema.validate(data);
-
       if (error) {
         console.log(error);
         return toast(error.message, { type: "info" });
       }
       setLoading(true);
-      const response = await Axios.post("/auth/login", {
-        data: { ...value, email: value.email?.toLowerCase() },
+      const response = await Axios.post("/user/login", {
+        ...value,
       });
 
       if (response.data.token) {
         setLoading(false);
-        localStorage.setItem("token", response.data.token);
         dispatch(user(response.data.user));
+        setCookie("user", JSON.stringify(response.data.user));
+        localStorage.setItem("token", response.data.token);
         setTimeout(() => {
           navigate("/home");
         }, 1500);

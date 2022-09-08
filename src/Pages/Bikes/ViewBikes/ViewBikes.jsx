@@ -1,20 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { toast, ToastContainer } from "react-toastify";
-import Axios from "../../../axios";
-import NavBar from "../../../Components/common/Navbar/NavBar";
 import { XCircleFill, CheckCircleFill } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
-import { reservation_dates } from "../../../actions/userActions";
 import Pagination from "../../../Components/common/Pagination/Pagination";
 import Loader from "../../../Components/common/Loader/Loader";
 import moment from "moment";
 import { filterBikesSchema } from "../../../schemas/bikes.schema";
 import DateRangePickerComponent from "../../../Components/DateRangePicker/DateRangePicker";
+import { useContext } from "react";
+import { UserContext } from "../../../context/context";
+
+import { commonAPI } from "../../../service/apis";
 
 const ViewBikes = () => {
-  const userState = useSelector((state) => state.user);
-  const dispatch = useDispatch();
+  const { userState } = useContext(UserContext);
   const [bikesByFilter, setBikesByFilter] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
@@ -45,14 +44,9 @@ const ViewBikes = () => {
         return toast(error.message, { type: "error" });
       }
       setLoading(true);
-      dispatch(reservation_dates(data));
-      Axios.get(
-        `/user/filter-bikes?reservationStartDate=${start.toDateString()}&reservationEndDate=${end.toDateString()}&page=1`,
-        {
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        },
+
+      commonAPI(
+        `/bike?reservationStartDate=${start.toDateString()}&reservationEndDate=${end.toDateString()}&page=1`,
       )
         .then((bikes) => {
           if (bikes.data.length === 0) {
@@ -90,12 +84,6 @@ const ViewBikes = () => {
         setEndDate(end);
         reservationStartDate = start;
         reservationEndDate = end;
-        dispatch(
-          reservation_dates({
-            reservationStartDate: start.toDateString(),
-            reservationEndDate: start.toDateString(),
-          }),
-        );
         data = {
           reservationStartDate: start.toDateString(),
           reservationEndDate: end.toDateString(),
@@ -105,12 +93,6 @@ const ViewBikes = () => {
         pg = page;
         reservationStartDate = startDate;
         reservationEndDate = endDate;
-        dispatch(
-          reservation_dates({
-            reservationStartDate: startDate.toDateString(),
-            reservationEndDate: endDate.toDateString(),
-          }),
-        );
         data = {
           reservationStartDate: startDate.toDateString(),
           reservationEndDate: endDate.toDateString(),
@@ -129,7 +111,7 @@ const ViewBikes = () => {
         return toast(error.message, { type: "warning" });
       }
       setLoading(true);
-      let requestString = `/user/filter-bikes?reservationStartDate=${reservationStartDate.toDateString()}&reservationEndDate=${reservationEndDate.toDateString()}&page=${pg}`;
+      let requestString = `/bike?reservationStartDate=${reservationStartDate.toDateString()}&reservationEndDate=${reservationEndDate.toDateString()}&page=${pg}`;
       if (value.model) {
         requestString += `&model=${value.model}`;
       }
@@ -139,15 +121,10 @@ const ViewBikes = () => {
       if (value.location) {
         requestString += `&location=${value.location}`;
       }
-
       if (value.minAvgRating !== undefined) {
         requestString += `&minAvgRating=${value.minAvgRating}`;
       }
-      Axios.get(requestString, {
-        headers: {
-          Authorization: "Bearer " + localStorage.getItem("token"),
-        },
-      })
+      commonAPI(requestString)
         .then((response) => {
           if (response.data.message) {
             setLoading(false);
@@ -197,7 +174,7 @@ const ViewBikes = () => {
             <li className="list-group-item">Bike ID: {bike.id}</li>
             <li className="list-group-item">
               Currently Available:{" "}
-              {bike.isAvailable ? (
+              {bike.isAvailableAdmin ? (
                 <CheckCircleFill className="text-success" size={25} />
               ) : (
                 <XCircleFill color="danger" size={25} />
@@ -221,7 +198,6 @@ const ViewBikes = () => {
   return (
     <div>
       <ToastContainer />
-      <NavBar user={userState} />
       <div className="container mt-4">
         <div className="text-center mb-4">
           <h3>View Bikes</h3>
