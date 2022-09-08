@@ -1,40 +1,39 @@
 import React, { useEffect, useState } from "react";
+import { UserContext } from "../../../context/context";
+import { useContext } from "react";
 import { CheckCircleFill, XCircleFill } from "react-bootstrap-icons";
-import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
-import Axios from "../../../axios";
-import NavBar from "../../../Components/common/Navbar/NavBar";
-import DateTimeRangeView from "../../../Components/DateTimeRangeView/DateTimeRangeView";
+import DateRangePickerComponent from "../../../Components/DateRangePicker/DateRangePicker";
+import Pagination from "../../../Components/common/Pagination/Pagination";
 import Modal from "react-modal";
 import {
-  remove_reservation_dates,
-  reservations,
-} from "../../../actions/userActions";
-import {
+  getBikeReservationsSchema,
   reserveBikeSchema,
   updateBikeSchema,
 } from "../../../schemas/bikes.schema";
+import moment from "moment/moment";
+import {
+  commonAPI,
+  deleteBikeAPI,
+  getBikeAPI,
+  getBikeReservationsAPI,
+  reserveBikeAPI,
+  updateBikeAPI,
+} from "../../../service/apis";
 
 const ReserveBike = () => {
+  const { userState } = useContext(UserContext);
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const userState = useSelector((state) => state.user);
   const { bikeId } = useParams();
-  const [startDate, setStartDate] = useState(
-    userState.reservationDates.reservationStartDate,
-  );
+  const [startDate, setStartDate] = useState(moment().startOf("day").toDate());
   const [endDate, setEndDate] = useState(
-    userState.reservationDates.reservationEndDate,
-  );
-  const [selectedDate, setSelectedDate] = useState(
-    userState.reservationDates.reservationStartDate
-      ? userState.reservationDates.reservationStartDate.toLocaleString() +
-          " TO " +
-          userState.reservationDates.reservationEndDate.toLocaleString()
-      : null,
+    moment().startOf("day").add(1, "day").toDate(),
   );
   const [bike, setBike] = useState(null);
+  const [bikeReservations, setBikeReservations] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
   const [modalIsOpen, setIsOpen] = React.useState(false);
   const [deleteModalIsOpen, setDeleteModalIsOpen] = React.useState(false);
 
@@ -51,77 +50,77 @@ const ReserveBike = () => {
     setIsOpen(false);
   }
 
+  const getBikeReservationsByPage = (page) => {
+    getBikeReservationsAPI(bikeId, page)
+      .then((reservations) => {
+        setBikeReservations(reservations.data[0]);
+        setTotalPages(reservations.data[1] / 5);
+      })
+      .catch((err) => {
+        return toast(err.response.data.message, { type: "error" });
+      });
+  };
+
   useEffect(() => {
     try {
       if (userState.role) {
-        const requestString =
-          userState.role === "regular"
-            ? `/user/get-bike/${bikeId}`
-            : `/manager/get-bike/${bikeId}`;
-
-        Axios.get(requestString, {
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        })
+        const requestString = `/bike/${bikeId}`;
+        commonAPI(requestString)
           .then((bike) => {
             setBike(bike.data);
             setUpdateModel(bike.data.model);
             setUpdateColor(bike.data.color);
             setUpdateLocation(bike.data.location);
-            setUpdateIsAvailable(bike.data.isAvailable);
+            setUpdateIsAvailable(bike.data.isAvailableAdmin);
           })
-          .catch((err) => console.log(err));
+          .then(() => {
+            if (userState.role === "manager") {
+              const { error, value } = getBikeReservationsSchema.validate({
+                bikeId,
+                page,
+              });
+              if (error) {
+                return toast(error.message, { type: "error" });
+              }
+              getBikeReservationsAPI(value.bikeId, value.page)
+                .then((reservations) => {
+                  setBikeReservations(reservations.data[0]);
+                  setTotalPages(Math.ceil(reservations.data[1] / 5));
+                })
+                .catch((err) => {
+                  return toast(err.response.data.message, { type: "error" });
+                });
+            }
+          })
+          .catch((err) => {
+            return toast(err.response.data.message, { type: "error" });
+          });
       }
     } catch (error) {
       console.log(error);
       return toast(error.response.data.message, { type: "error" });
     }
-    return () => {
-      dispatch(remove_reservation_dates());
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userState.role]);
 
   const reserveBike = () => {
     try {
-      const sd = new Date(startDate);
-      const ed = new Date(endDate);
-
       const { error, value } = reserveBikeSchema.validate({
         bikeId,
-        reservationStartDate: sd.toLocaleString(),
-        reservationEndDate: ed.toLocaleString(),
+        reservationStartDate: startDate.toDateString(),
+        reservationEndDate: endDate.toDateString(),
       });
-
       if (error) {
         return toast(error.message, { type: "info" });
       }
-
-      Axios.patch(
-        `/user/reserve-bike/${bikeId}`,
-        { ...value },
-        {
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        },
-      )
-        .then(async (response) => {
-          if (response.data.message) {
-            return toast(response.data.message, { type: "info" });
+      reserveBikeAPI(value)
+        .then((response) => {
+          if (response?.data?.success) {
+            setTimeout(() => {
+              navigate("/reservations");
+            }, 1500);
+            return toast(response?.data?.success, { type: "info" });
           }
-          setTimeout(() => {
-            navigate("/reservations");
-          }, 1500);
-          await Axios.get(`/user/get-all-user-reservations`, {
-            headers: {
-              Authorization: "Bearer " + localStorage.getItem("token"),
-            },
-          }).then((response) => {
-            dispatch(reservations(response.data));
-          });
-          return toast(response.data.success, { type: "default" });
         })
         .catch((err) => {
           return toast(err.response.data.message, { type: "error" });
@@ -141,21 +140,13 @@ const ReserveBike = () => {
   };
 
   const getBikeData = async () => {
-    const bikeData = await Axios.get(`/user/get-bike/${bikeId}`, {
-      headers: {
-        Authorization: "Bearer " + localStorage.getItem("token"),
-      },
-    });
+    const bikeData = await getBikeAPI(bikeId);
     setBike(bikeData.data);
   };
 
   const deleteBike = () => {
     try {
-      Axios.delete(`/manager/delete-bike/${bikeId}`, {
-        headers: {
-          Authorization: "Bearer " + localStorage.getItem("token"),
-        },
-      })
+      deleteBikeAPI(bikeId)
         .then((response) => {
           setTimeout(() => {
             navigate("/home");
@@ -187,20 +178,12 @@ const ReserveBike = () => {
         return toast(error.message, { type: "info" });
       }
 
-      Axios.put(
-        `/manager/update-bike/${bikeId}`,
-        {
-          model: value?.model,
-          color: value?.color,
-          location: value?.location,
-          isAvailable: value?.isAvailable,
-        },
-        {
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        },
-      )
+      updateBikeAPI(bikeId, {
+        model: value?.model,
+        color: value?.color,
+        location: value?.location,
+        isAvailableAdmin: value?.isAvailable,
+      })
         .then(async (response) => {
           if (response.data.message) {
             return toast(response.data.message, { type: "error" });
@@ -223,7 +206,6 @@ const ReserveBike = () => {
 
   return (
     <div>
-      <NavBar user={userState} />
       <ToastContainer />
       <div className="text-center mt-4 mb-4">
         <h4>
@@ -231,28 +213,28 @@ const ReserveBike = () => {
         </h4>
       </div>
       <div className="container">
-        <label>Reserve {bike && bike.model}</label>
+        <div className="text-center mb-4">
+          <label>Reserve {bike && bike.model}</label>
+        </div>
         <div className="mt-2">
-          <DateTimeRangeView
+          <DateRangePickerComponent
             startDate={startDate}
             endDate={endDate}
-            selectedDate={selectedDate}
             setStartDate={setStartDate}
             setEndDate={setEndDate}
-            setSelectedDate={setSelectedDate}
             func={reserveBike}
-            text={"Reserve"}
+            buttonText={`Reserve`}
           />
         </div>
         {bike && (
-          <div className="mt-5">
+          <div className="mt-5 mb-5">
             <h6>Details of bike</h6>
             <ul className="list-group list-group-flush border">
               <li className="list-group-item">Color: {bike.color}</li>
               <li className="list-group-item">Location: {bike.location}</li>
               <li className="list-group-item">
                 Currently Available:{" "}
-                {bike.isAvailable ? (
+                {bike.isAvailableAdmin ? (
                   <CheckCircleFill className="text-success" size={25} />
                 ) : (
                   <XCircleFill color="danger" size={25} />
@@ -267,15 +249,26 @@ const ReserveBike = () => {
         {userState && userState.role === "manager" && (
           <div className="mt-4">
             <h6>Previous Reservations for {bike && bike.model}</h6>
+            {bikeReservations.length > 0 && (
+              <div className="mt-3">
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  setPage={setPage}
+                  func={getBikeReservationsByPage}
+                />
+              </div>
+            )}
+
             <div
               className="overflow-auto mt-2 border p-2"
               style={{ maxHeight: "50vh" }}
             >
-              {bike && bike.reservations ? (
+              {bike && bikeReservations ? (
                 <>
-                  {bike.reservations.length > 0 ? (
+                  {bikeReservations.length > 0 ? (
                     <>
-                      {bike.reservations.map((reservation) => (
+                      {bikeReservations.map((reservation) => (
                         <div className="card">
                           <div className="card-body">
                             <h6 class="card-title">

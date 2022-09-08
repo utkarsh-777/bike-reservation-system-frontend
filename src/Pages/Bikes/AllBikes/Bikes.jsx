@@ -1,17 +1,14 @@
 import React, { useEffect, useState } from "react";
 import Pagination from "../../../Components/common/Pagination/Pagination";
 import { CheckCircleFill, XCircleFill } from "react-bootstrap-icons";
-import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import Axios from "../../../axios";
 import Loader from "../../../Components/common/Loader/Loader";
-import NavBar from "../../../Components/common/Navbar/NavBar";
 import { getUsersSchema } from "../../../schemas/bikes.schema";
+import { getAllBikesAPI } from "../../../service/apis";
 
 const Bikes = () => {
   const navigate = useNavigate();
-  const userState = useSelector((state) => state.user);
   const [bikes, setBikes] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -22,11 +19,7 @@ const Bikes = () => {
       if (error) {
         return toast(error.message, { type: "error" });
       }
-      Axios.get(`/manager/get-all-bikes/${value}`, {
-        headers: {
-          Authorization: "Bearer " + localStorage.getItem("token"),
-        },
-      }).then((response) => {
+      getAllBikesAPI(value).then((response) => {
         setBikes(response.data[0]);
         setTotalPages(Math.ceil(response.data[1] / 5));
       });
@@ -56,7 +49,7 @@ const Bikes = () => {
             <li className="list-group-item">Bike ID: {bike.id}</li>
             <li className="list-group-item">
               Currently Available:{" "}
-              {bike.isAvailable ? (
+              {bike.isAvailableAdmin ? (
                 <CheckCircleFill className="text-success" size={25} />
               ) : (
                 <XCircleFill color="danger" size={25} />
@@ -74,7 +67,6 @@ const Bikes = () => {
   };
   return (
     <>
-      <NavBar user={userState} />
       <h4 className="text-center mt-4">All Bikes</h4>
       <div style={{ marginTop: "20px" }}></div>
       <Pagination

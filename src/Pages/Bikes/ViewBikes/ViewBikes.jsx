@@ -1,26 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { toast, ToastContainer } from "react-toastify";
-import Axios from "../../../axios";
-import NavBar from "../../../Components/common/Navbar/NavBar";
-import DateTimeRangeView from "../../../Components/DateTimeRangeView/DateTimeRangeView";
 import { XCircleFill, CheckCircleFill } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
-import { reservation_dates } from "../../../actions/userActions";
 import Pagination from "../../../Components/common/Pagination/Pagination";
 import Loader from "../../../Components/common/Loader/Loader";
 import moment from "moment";
 import { filterBikesSchema } from "../../../schemas/bikes.schema";
+import DateRangePickerComponent from "../../../Components/DateRangePicker/DateRangePicker";
+import { useContext } from "react";
+import { UserContext } from "../../../context/context";
+
+import { commonAPI } from "../../../service/apis";
 
 const ViewBikes = () => {
-  const userState = useSelector((state) => state.user);
-  const dispatch = useDispatch();
+  const { userState } = useContext(UserContext);
   const [bikesByFilter, setBikesByFilter] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(null);
   const navigate = useNavigate();
 
   const [model, setModel] = useState();
@@ -32,27 +30,23 @@ const ViewBikes = () => {
 
   useEffect(() => {
     try {
-      let start = moment().add(5, "minutes");
-      let end = moment(start).add(1, "days").subtract(1, "seconds");
-      setStartDate(start._d);
-      setEndDate(end._d);
-      setSelectedDate(
-        start._d.toLocaleString() + " TO " + end._d.toLocaleString(),
-      );
+      let start = moment().startOf("day").toDate();
+      let end = moment(start).add(1, "day").toDate();
+      setStartDate(start);
+      setEndDate(end);
       let data = {
-        reservationStartDate: start._d,
-        reservationEndDate: end._d,
+        reservationStartDate: start.toDateString(),
+        reservationEndDate: end.toDateString(),
         page: 1,
       };
+      const { error } = filterBikesSchema.validate(data);
+      if (error) {
+        return toast(error.message, { type: "error" });
+      }
       setLoading(true);
-      dispatch(reservation_dates(data));
-      Axios.get(
-        `/user/filter-bikes?reservationStartDate=${start._d.toLocaleString()}&reservationEndDate=${end._d.toLocaleString()}&page=1`,
-        {
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        },
+
+      commonAPI(
+        `/bike?reservationStartDate=${start.toDateString()}&reservationEndDate=${end.toDateString()}&page=1`,
       )
         .then((bikes) => {
           if (bikes.data.length === 0) {
@@ -66,10 +60,12 @@ const ViewBikes = () => {
           setLoading(false);
         })
         .catch((error) => {
+          setLoading(false);
           return toast(error.response.data.message, { type: "error" });
         });
     } catch (error) {
-      return toast("Error getting bikes", { type: "error" });
+      setLoading(false);
+      return toast(error.response.data.message, { type: "error" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -82,33 +78,24 @@ const ViewBikes = () => {
       let pg = 1;
       setBikesByFilterPage(page);
       if (ob === "clear") {
-        let start = moment().add(5, "minutes");
-        let end = moment(start).add(1, "days").subtract(1, "seconds");
+        let start = moment().startOf("day").toDate();
+        let end = moment(start).add(1, "day").toDate();
+        setStartDate(start);
+        setEndDate(end);
         reservationStartDate = start;
         reservationEndDate = end;
-        dispatch(
-          reservation_dates({ reservationStartDate, reservationEndDate }),
-        );
         data = {
-          reservationStartDate: start._d,
-          reservationEndDate: end._d,
+          reservationStartDate: start.toDateString(),
+          reservationEndDate: end.toDateString(),
           page: 1,
         };
-        setStartDate(start._d);
-        setEndDate(end._d);
-        setSelectedDate(
-          start._d.toLocaleString() + " TO " + end._d.toLocaleString(),
-        );
       } else {
         pg = page;
-        reservationStartDate = new Date(startDate);
-        reservationEndDate = new Date(endDate);
-        dispatch(
-          reservation_dates({ reservationStartDate, reservationEndDate }),
-        );
+        reservationStartDate = startDate;
+        reservationEndDate = endDate;
         data = {
-          reservationStartDate: startDate,
-          reservationEndDate: endDate,
+          reservationStartDate: startDate.toDateString(),
+          reservationEndDate: endDate.toDateString(),
           page,
           model,
           color,
@@ -116,7 +103,6 @@ const ViewBikes = () => {
           minAvgRating: minimumAverageRating,
         };
       }
-
       const { error, value } = filterBikesSchema.validate({
         ...data,
       });
@@ -125,7 +111,7 @@ const ViewBikes = () => {
         return toast(error.message, { type: "warning" });
       }
       setLoading(true);
-      let requestString = `/user/filter-bikes?reservationStartDate=${reservationStartDate.toLocaleString()}&reservationEndDate=${reservationEndDate.toLocaleString()}&page=${pg}`;
+      let requestString = `/bike?reservationStartDate=${reservationStartDate.toDateString()}&reservationEndDate=${reservationEndDate.toDateString()}&page=${pg}`;
       if (value.model) {
         requestString += `&model=${value.model}`;
       }
@@ -135,15 +121,10 @@ const ViewBikes = () => {
       if (value.location) {
         requestString += `&location=${value.location}`;
       }
-
       if (value.minAvgRating !== undefined) {
         requestString += `&minAvgRating=${value.minAvgRating}`;
       }
-      Axios.get(requestString, {
-        headers: {
-          Authorization: "Bearer " + localStorage.getItem("token"),
-        },
-      })
+      commonAPI(requestString)
         .then((response) => {
           if (response.data.message) {
             setLoading(false);
@@ -158,10 +139,12 @@ const ViewBikes = () => {
         })
         .catch((error) => {
           setLoading(false);
+          setBikesByFilter([]);
           return toast(error.response.data.message, { type: "error" });
         });
     } catch (error) {
-      console.log(error);
+      setLoading(false);
+      setBikesByFilter([]);
       return toast("Error in filtering bikes!", { type: "error" });
     }
   };
@@ -191,7 +174,7 @@ const ViewBikes = () => {
             <li className="list-group-item">Bike ID: {bike.id}</li>
             <li className="list-group-item">
               Currently Available:{" "}
-              {bike.isAvailable ? (
+              {bike.isAvailableAdmin ? (
                 <CheckCircleFill className="text-success" size={25} />
               ) : (
                 <XCircleFill color="danger" size={25} />
@@ -215,7 +198,6 @@ const ViewBikes = () => {
   return (
     <div>
       <ToastContainer />
-      <NavBar user={userState} />
       <div className="container mt-4">
         <div className="text-center mb-4">
           <h3>View Bikes</h3>
@@ -242,16 +224,13 @@ const ViewBikes = () => {
         </div>
         <div className="row">
           <div className="col-md border p-2 bg-light m-1">
-            <h5 className="mt-1">Filter By Date and Time:</h5>
-            <DateTimeRangeView
+            <h5 className="mt-1 text-center">Filter By Date</h5>
+            <DateRangePickerComponent
               startDate={startDate}
               endDate={endDate}
-              selectedDate={selectedDate}
               setStartDate={setStartDate}
               setEndDate={setEndDate}
-              setSelectedDate={setSelectedDate}
             />
-
             <h5 className="mt-4">Filter By :</h5>
             <label className="mt-2">Model</label>
             <input
@@ -315,7 +294,7 @@ const ViewBikes = () => {
                 />
               </div>
             )}
-            <div className="overflow-auto mt-2" style={{ maxHeight: "60vh" }}>
+            <div className="overflow-auto mt-2" style={{ maxHeight: "105vh" }}>
               {!loading ? (
                 <>
                   {bikesByFilter.length > 0 ? (

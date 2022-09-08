@@ -7,9 +7,8 @@ export const updateUserProfileSchema = Joi.object({
   password: Joi.string().min(5).max(50).optional(),
 });
 
-export const updateManagerUserProfileSchema = Joi.object({
+export const updateUserSchema = Joi.object({
   fullName: Joi.string().trim().min(4).max(100).optional(),
   email: Joi.string().trim().email({ tlds: false }).optional(),
-  password: Joi.string().min(5).max(50).optional(),
   role: Joi.string().optional(),
 });

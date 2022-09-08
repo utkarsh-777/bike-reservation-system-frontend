@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import { useContext } from "react";
+import { UserContext } from "../../../context/context";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import Loader from "../../../Components/common/Loader/Loader";
-import { getAllUsersService } from "../../../service/apis";
-import NavBar from "../../../Components/common/Navbar/NavBar";
 import Pagination from "../../../Components/common/Pagination/Pagination";
+
 import { getAllUsersSchema } from "../../../schemas/user.schema";
+import { getAllUsersAPI } from "../../../service/apis";
 
 const Users = () => {
-  const userState = useSelector((state) => state.user);
+  const { userState } = useContext(UserContext);
   const [users, setUsers] = useState(null);
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -23,7 +24,7 @@ const Users = () => {
         return toast(error.message, { type: "error" });
       }
       setLoading(true);
-      const response = await getAllUsersService(value);
+      const response = await getAllUsersAPI(value);
       if (response.data.message) {
         return toast(response.data.message, { type: "warning" });
       }
@@ -44,7 +45,6 @@ const Users = () => {
   return (
     <div>
       <ToastContainer />
-      <NavBar user={userState} />
       <div className="mt-4">
         <h4 className="text-center">Users</h4>
         <div className="text-center">

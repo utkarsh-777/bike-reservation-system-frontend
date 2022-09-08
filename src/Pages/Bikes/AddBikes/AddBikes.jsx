@@ -1,9 +1,6 @@
 import React, { useState } from "react";
-import { useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
-import Axios from "../../../axios";
-import NavBar from "../../../Components/common/Navbar/NavBar";
 import {
   emailSchema,
   fullNameSchema,
@@ -16,9 +13,9 @@ import {
   locationSchema,
   modelSchema,
 } from "../../../schemas/bikes.schema";
+import { addBikeAPI, addUserAPI } from "../../../service/apis";
 
 const AddBikes = () => {
-  const userState = useSelector((state) => state.user);
   const { addEntity } = useParams();
   const [model, setModel] = useState();
   const [color, setColor] = useState();
@@ -36,16 +33,10 @@ const AddBikes = () => {
           location,
           isAvailableAdmin: availability,
         });
-
         if (error) {
           return toast(error.message, { type: "info" });
         }
-
-        Axios.post(`/manager/add-bike`, value, {
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        })
+        addBikeAPI(value)
           .then((response) => {
             if (response.data.id) {
               setTimeout(() => {
@@ -74,11 +65,7 @@ const AddBikes = () => {
           return toast(error.message, { type: "info" });
         }
 
-        const response = await Axios.post("/manager/add-user", value, {
-          headers: {
-            Authorization: "Bearer " + localStorage.getItem("token"),
-          },
-        });
+        const response = await addUserAPI(value);
         if (response.data.user) {
           setTimeout(() => {
             navigate("/users");
@@ -104,7 +91,6 @@ const AddBikes = () => {
   return (
     <div>
       <ToastContainer />
-      <NavBar user={userState} />
       <div className="container mt-4">
         <h4>Add {addEntity === "bikes" ? "Bikes" : "Users"}</h4>
         <label className="mt-4" htmlFor="input1">
